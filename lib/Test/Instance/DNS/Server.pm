@@ -1,18 +1,16 @@
-#! /usr/bin/env perl
 package Test::Instance::DNS::Server;
 
 use MooX::Options::Actions;
-use Net::EmptyPort qw/ empty_port /;
 use Net::DNS::Nameserver;
 use Net::DNS::ZoneFile;
+use Net::DNS qw/ rrsort /;
+use IO::All;
 
 option listen_port => (
-  is => 'lazy',
+  is => 'ro',
   format => 'i',
   doc => 'Listen Port',
-  builder => sub {
-    return empty_port;
-  },
+  required => 1,
 );
 
 option verbose => (
@@ -26,6 +24,13 @@ option zone => (
   format => 's',
   required => 1,
   doc => 'The zone file to use',
+);
+
+option pid => (
+  is => 'ro',
+  format => 's',
+  default => 'dns-server.pid',
+  doc => 'Pidfile for the server',
 );
 
 has ns => (
@@ -75,35 +80,46 @@ has _is_running => (
   default => 1,
 );
 
+has _pidfile => (
+  is => 'lazy',
+  builder => sub {
+    my $self = shift;
+    return io($self->pid);
+  },
+);
+
 sub BUILD {
   my $self = shift;
   $SIG{'INT'} = sub { $self->sig_handler( @_ ) };
   $SIG{'TERM'} = sub { $self->sig_handler( @_ ) };
 }
 
+sub _create_pidfile {
+  my $self = shift;
+  $self->_pidfile->println($$)->autoflush;
+}
+
+sub _cleanup_pidfile {
+  my $self = shift;
+  $self->_pidfile->unlink;
+}
+
 sub cmd_run {
   my $self = shift;
-  $self->parse_zone;
-  print "Creating Nameserver on port " . $self->listen_port . "\n";
+  print "Creating Nameserver on port " . $self->listen_port . "\n" if $self->verbose;
 
+  $self->_create_pidfile;
   # same as calling main_loop on the Nameserver, but with a dropout
   while ( $self->_is_running ) {
     $self->ns->loop_once(10);
   }
+  $self->_cleanup_pidfile;
 }
 
 sub sig_handler {
   my $self = shift;
   $self->_set__is_running(0);
-  print "Stopping Nameserver on port " . $self->listen_port . "\n";
-}
-
-
-sub parse_zone {
-  my $self = shift;
-  use Devel::Dwarn;
-
-  Dwarn $self->_zone_lookup;
+  print "Stopping Nameserver on port " . $self->listen_port . "\n" if $self->verbose;
 }
 
 sub lookup_records {
@@ -122,19 +138,16 @@ sub reply_handler {
   my ( $qname, $qclass, $qtype, $peerhost, $query, $conn ) = @_;
   my ( $rcode, @ans, @auth, @add );
 
-  print "Received query from $peerhost to " . $conn->{sockhost} . "\n";
-  $query->print;
+  print "Received query from $peerhost to " . $conn->{sockhost} . "\n" if $self->verbose;
+  $query->print if $self->verbose;
 
   $rcode = "NOERROR";
-  if ( $qtype eq "A" ) {
-    push @ans, $self->lookup_a_records( $qtype, $qname );
-    $rcode = "NXDOMAIN" unless scalar(@ans);
-  } elsif ( $qtype eq "AAAA" ) {
-    push @ans, $self->lookup_a_records( $qtype, $qname );
+  # use rrsort???
+  if ( grep { $_ eq $qtype } qw/ A AAAA CNAME TXT SRV / ) {
+    push @ans, $self->lookup_records( $qtype, $qname );
     $rcode = "NXDOMAIN" unless scalar(@ans);
   } else {
     if ( exists $self->_zone_lookup->{ $qtype } ) {
-      Dwarn $self->_zone_lookup->{ $qtype };
     }
     $rcode = "NXDOMAIN";
   }
