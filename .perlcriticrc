@@ -1,0 +1,5 @@
+[TestingAndDebugging::RequireUseStrict]
+equivalent_modules = MooX::Options::Actions
+
+[TestingAndDebugging::RequireUseWarnings]
+equivalent_modules = MooX::Options::Actions
