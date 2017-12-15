@@ -5,7 +5,10 @@ use Test::More;
 use Test::DNS;
 use Test::Instance::DNS;
 
-my $t_i_dns = Test::Instance::DNS->new( zone_file => 't/etc/db.example.com' );
+my $t_i_dns = Test::Instance::DNS->new(
+  listen_addr => '127.0.0.1',
+  zone_file => 't/etc/db.example.com'
+);
 
 $t_i_dns->run;
 

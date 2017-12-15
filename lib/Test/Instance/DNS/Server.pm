@@ -6,6 +6,13 @@ use Net::DNS::ZoneFile;
 use Net::DNS qw/ rrsort /;
 use IO::All;
 
+option listen_addr => (
+  is => 'ro',
+  format => 's@',
+  doc => 'Addresses to listen on',
+  default => sub { ['::1', '127.0.0.1' ] },
+);
+
 option listen_port => (
   is => 'ro',
   format => 'i',
@@ -38,6 +45,7 @@ has ns => (
   builder => sub {
     my $self = shift;
     return Net::DNS::Nameserver->new(
+      LocalAddr => $self->listen_addr,
       LocalPort => $self->listen_port,
       ReplyHandler => sub { $self->reply_handler( @_ ) },
       Verbose => $self->verbose,

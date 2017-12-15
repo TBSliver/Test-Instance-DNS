@@ -12,6 +12,16 @@ has listen_port => (
   },
 );
 
+has listen_addr => (
+  is => 'lazy',
+  coerce => sub {
+    ref( $_[0] ) eq 'ARRAY' ? $_[0] : [ $_[0] ];
+  },
+  builder => sub {
+    return ['::1', '127.0.0.1' ],
+  },
+);
+
 has zone_file => (
   is => 'ro',
   required => 1,
