@@ -5,6 +5,38 @@ use IPC::System::Simple qw/ system /;
 use Net::EmptyPort qw/ empty_port /;
 use File::Temp;
 
+our $VERSION = '0.001';
+
+=head1 NAME
+
+Test::Instance::DNS - Mock DNS server for testing
+
+=head1 SYNOPSIS
+
+  use Test::More;
+  use Test::DNS;
+  use Test::Instance::DNS;
+
+  my $t_i_dns = Test::Instance::DNS->new(
+    listen_addr => '127.0.0.1',
+    zone_file => 't/etc/db.example.com',
+  );
+
+  $t_i_dns->run;
+
+  my $dns = Test::DNS->new(nameservers => ['127.0.0.1']);
+  $dns->object->port($t_i_dns->listen_port);
+
+  $dns->is_a('example.com' => '192.0.2.1');
+
+  done_testing;
+
+=head1 DESCRIPTION
+
+Provides a local mock DNS server usable for testing.
+
+=cut
+
 has listen_port => (
   is => 'lazy',
   builder => sub {
@@ -123,3 +155,22 @@ sub _kill_pid {
 }
 
 1;
+
+=head1 AUTHOR
+ 
+Tom Bloor E<lt>t.bloor@shadowcat.co.ukE<gt>
+ 
+=head1 COPYRIGHT
+ 
+Copyright 2018- Tom Bloor
+ 
+=head1 LICENSE
+ 
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+ 
+=head1 SEE ALSO
+ 
+L<Test::DNS> L<Net::DNS>
+ 
+=cut
